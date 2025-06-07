@@ -28,3 +28,5 @@ object BukuApi {
         retrofit.create(BukuApiService::class.java)
     }
 }
+
+enum class ApiStatus { LOADING, SUCCESS }
