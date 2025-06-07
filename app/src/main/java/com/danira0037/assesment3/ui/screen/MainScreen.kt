@@ -87,10 +87,12 @@ fun MainScreen() {
     val user by dataStore.userFlow.collectAsState(User())
 
     var showDialog by remember { mutableStateOf(false) }
+    var showHewanDialog by remember { mutableStateOf(false) }
 
     var bitmap: Bitmap? by remember { mutableStateOf(null) }
     val launcher = rememberLauncherForActivityResult(CropImageContract()) {
         bitmap = getCroppedImage(context.contentResolver, it)
+        if (bitmap != null) showHewanDialog = true
     }
 
     Scaffold(
@@ -151,6 +153,16 @@ fun MainScreen() {
                 showDialog = false
             }
         }
+        if (showHewanDialog) {
+            BukuDialog(
+                bitmap = bitmap,
+                onDismissRequest = { showHewanDialog = false }
+            ) { namaBuku, author ->
+                Log.d("TAMBAH", "$namaBuku $author ditambahkan.")
+                showHewanDialog = false
+            }
+        }
+
     }
 }
 
