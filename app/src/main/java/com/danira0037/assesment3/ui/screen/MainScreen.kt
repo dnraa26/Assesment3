@@ -8,22 +8,28 @@ import android.graphics.ImageDecoder
 import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -42,7 +48,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -86,14 +91,21 @@ fun MainScreen() {
     val dataStore = UserDataStore(context)
     val user by dataStore.userFlow.collectAsState(User())
 
+    val viewModel: MainViewModel = viewModel()
+
     var showDialog by remember { mutableStateOf(false) }
-    var showHewanDialog by remember { mutableStateOf(false) }
+    var showBukuDialog by remember { mutableStateOf(false) }
 
     var bitmap: Bitmap? by remember { mutableStateOf(null) }
     val launcher = rememberLauncherForActivityResult(CropImageContract()) {
         bitmap = getCroppedImage(context.contentResolver, it)
-        if (bitmap != null) showHewanDialog = true
+        if (bitmap != null) showBukuDialog = true
     }
+
+    var showEditDialog by remember { mutableStateOf(false) }
+    var selectedBuku by remember { mutableStateOf<Buku?>(null)}
+
+    val error by viewModel.errorMessage.collectAsState()
 
     Scaffold(
         topBar = {
@@ -125,14 +137,17 @@ fun MainScreen() {
         },
         floatingActionButton = {
             FloatingActionButton(onClick = {
-                val options = CropImageContractOptions(
-                    null, CropImageOptions(
-                        imageSourceIncludeGallery = false,
-                        imageSourceIncludeCamera = true,
-                        fixAspectRatio = true
+                if (user.email.isEmpty()) {
+                    Toast.makeText(context, context.getString(R.string.add_error), Toast.LENGTH_LONG).show()
+                } else {
+                    val options = CropImageContractOptions(
+                        null, CropImageOptions(
+                            imageSourceIncludeGallery = false,
+                            imageSourceIncludeCamera = true,
+                            fixAspectRatio = true
+                        )
                     )
-                )
-                launcher.launch(options)
+                    launcher.launch(options) }
             }) {
                 Icon(
                     imageVector = Icons.Default.Add,
@@ -142,7 +157,15 @@ fun MainScreen() {
         }
 
     ) { innerPadding ->
-        ScreenContent(Modifier.padding(innerPadding))
+        ScreenContent(
+            user,
+            viewModel,
+            Modifier.padding(innerPadding),
+            onEditClick = { buku ->
+                selectedBuku = buku
+                showEditDialog = true
+            }
+        )
 
         if(showDialog){
             ProfilDialog(
@@ -153,22 +176,56 @@ fun MainScreen() {
                 showDialog = false
             }
         }
-        if (showHewanDialog) {
+
+        if (showBukuDialog) {
             BukuDialog(
                 bitmap = bitmap,
-                onDismissRequest = { showHewanDialog = false }
+                onDismissRequest = { showBukuDialog = false }
             ) { namaBuku, author ->
+                viewModel.uploadAndPostPakaian(
+                    bitmap = bitmap!!,
+                    namaBuku = namaBuku,
+                    author = author,
+                    email = user.email,
+                    onSuccess = {
+                        showBukuDialog = false
+                    }
+                )
                 Log.d("TAMBAH", "$namaBuku $author ditambahkan.")
-                showHewanDialog = false
+                showBukuDialog = false
             }
+        }
+
+        if (showEditDialog && selectedBuku != null) {
+            EditBukuDialog(
+                initialData = selectedBuku!!,
+                onDismissRequest = {
+                    showEditDialog = false
+                    selectedBuku = null
+                },
+                onSubmit = { namaBaru, jenisBaru ->
+                    val updated = selectedBuku!!.copy(
+                        namaBuku = namaBaru,
+                        author = jenisBaru
+                    )
+                    viewModel.updateBuku(updated) {
+                        showEditDialog = false
+                        selectedBuku = null
+                    }
+                }
+            )
+        }
+
+        if (error != null) {
+            Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+            viewModel.clearError()
         }
 
     }
 }
 
 @Composable
-fun ScreenContent(modifier: Modifier = Modifier) {
-    val viewModel: MainViewModel = viewModel()
+fun ScreenContent(user: User, viewModel: MainViewModel, modifier: Modifier = Modifier, onEditClick:(Buku) -> Unit) {
     val data by viewModel.data
     val status by viewModel.status.collectAsState()
 
@@ -187,7 +244,13 @@ fun ScreenContent(modifier: Modifier = Modifier) {
                 columns = GridCells.Fixed(2),
                 contentPadding = PaddingValues(bottom = 80.dp)
             ) {
-                items(data) { ListItem(buku = it) }
+                items(data) {
+                    if (it.owner == user.email) {
+                        ListItem(viewModel, it){
+                            onEditClick(it)
+                        }
+                    }
+                }
             }
         }
 
@@ -219,39 +282,63 @@ fun ScreenContent(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun ListItem(buku: Buku) {
-    Box(
-        modifier = Modifier.padding(4.dp).border(1.dp, Color.Gray),
-        contentAlignment = Alignment.BottomCenter
+fun ListItem(viewModel: MainViewModel, buku: Buku, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .padding(8.dp)
+            .fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(6.dp),
+        shape = RoundedCornerShape(16.dp)
     ) {
-        AsyncImage(
-            model = buku.gambar,
-            contentDescription = stringResource(R.string.gambar, buku.namaBuku),
-            contentScale = ContentScale.Crop,
-            placeholder = painterResource(id = R.drawable.loading_img),
-            error = painterResource(id = R.drawable.broken_image),
-            modifier = Modifier.fillMaxWidth().padding(4.dp)
-        )
         Column(
-            modifier = Modifier.fillMaxWidth().padding(4.dp)
-                .background(Color(red = 0f, green = 0f, blue = 0f, alpha = 0.5f))
-                .padding(4.dp)
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Text(
-                text = buku.namaBuku,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
+            AsyncImage(
+                model = buku.gambar,
+                contentDescription = stringResource(R.string.gambar, buku.namaBuku),
+                contentScale = ContentScale.Crop,
+                placeholder = painterResource(id = R.drawable.loading_img),
+                error = painterResource(id = R.drawable.broken_image),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp)
             )
-            Text(
-                text = buku.author,
-                fontStyle = FontStyle.Italic,
-                fontSize = 14.sp,
-                color = Color.White
-            )
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text(
+                    text = buku.namaBuku,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = buku.author,
+                    fontStyle = FontStyle.Italic,
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    IconButton(onClick = { onClick() }) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    IconButton(onClick = { viewModel.deleteBuku(buku.id) }) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Hapus",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
         }
     }
 }
-
 private suspend fun signIn(dataStore: UserDataStore,context: Context){
     val googleIdOption: GetGoogleIdOption = GetGoogleIdOption.Builder()
         .setFilterByAuthorizedAccounts(false)

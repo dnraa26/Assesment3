@@ -11,4 +11,6 @@
     <string name="author">Author buku</string>
     <string name="batal">Batal</string>
     <string name="simpan">Simpan</string>
+    <string name="edit_buku">Edit buku</string>
+    <string name="add_error">Anda harus melakukan login dahulu!</string>
 </resources>
