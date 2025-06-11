@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -49,6 +50,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -106,6 +108,11 @@ fun MainScreen() {
     }
 
     var showEditDialog by remember { mutableStateOf(false) }
+    var editedBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    val editLauncher = rememberLauncherForActivityResult(CropImageContract()) {
+        editedBitmap = getCroppedImage(context.contentResolver, it)
+    }
+
     var selectedBuku by remember { mutableStateOf<Buku?>(null)}
 
     val error by viewModel.errorMessage.collectAsState()
@@ -140,21 +147,38 @@ fun MainScreen() {
         },
         floatingActionButton = {
             FloatingActionButton(onClick = {
-                if (user.email.isEmpty()) {
-                    Toast.makeText(context, context.getString(R.string.add_error), Toast.LENGTH_LONG).show()
-                } else {
-                    val options = CropImageContractOptions(
-                        null, CropImageOptions(
-                            imageSourceIncludeGallery = false,
-                            imageSourceIncludeCamera = true,
-                            fixAspectRatio = true
-                        )
+                    if (!viewModel.isUploading.value) {
+                        if (user.email.isEmpty()) {
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.add_error),
+                                Toast.LENGTH_LONG
+                            ).show()
+                        } else {
+                            val options = CropImageContractOptions(
+                                null, CropImageOptions(
+                                    imageSourceIncludeGallery = false,
+                                    imageSourceIncludeCamera = true,
+                                    fixAspectRatio = true
+                                )
+                            )
+                            launcher.launch(options)
+                        }
+                    }
+                },
+                containerColor = if(!viewModel.isUploading.value) MaterialTheme.colorScheme.primaryContainer else Color.Gray,
+                contentColor = Color.White
+            ) {
+                if (viewModel.isUploading.value)
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                )else(
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = stringResource(id = R.string.tambah_hewan)
                     )
-                    launcher.launch(options) }
-            }) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = stringResource(id = R.string.tambah_hewan)
                 )
             }
         }
@@ -205,21 +229,50 @@ fun MainScreen() {
         if (showEditDialog && selectedBuku != null) {
             EditBukuDialog(
                 initialData = selectedBuku!!,
+                currentBitmap = editedBitmap,
+                onGantiGambar = {
+                    val options = CropImageContractOptions(
+                        null,
+                        CropImageOptions(
+                            imageSourceIncludeCamera = true,
+                            imageSourceIncludeGallery = false,
+                            fixAspectRatio = true
+                        )
+                    )
+                    editLauncher.launch(options)
+                },
                 onDismissRequest = {
                     showEditDialog = false
                     selectedBuku = null
                 },
-                onSubmit = { namaBaru, jenisBaru ->
+                isUploading = viewModel.isUploading.value
+            ){ namaBuku, author ->
+                if (editedBitmap != null) {
+                    viewModel.uploadImageToImgBB(
+                        editedBitmap!!
+                    ) { newUrl ->
+                        val updated = selectedBuku!!.copy(
+                            namaBuku = namaBuku,
+                            author = author,
+                            gambar = newUrl
+                        )
+                        viewModel.updateBuku(updated) {
+                            showEditDialog = false
+                            selectedBuku = null
+                            editedBitmap = null
+                        }
+                    }
+                } else {
                     val updated = selectedBuku!!.copy(
-                        namaBuku = namaBaru,
-                        author = jenisBaru
+                        namaBuku = namaBuku,
+                        author = author
                     )
                     viewModel.updateBuku(updated) {
                         showEditDialog = false
                         selectedBuku = null
                     }
                 }
-            )
+            }
         }
 
         if (bukuToDelete != null) {
