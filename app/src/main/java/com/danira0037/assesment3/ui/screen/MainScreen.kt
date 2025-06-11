@@ -27,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -96,6 +97,8 @@ fun MainScreen() {
     var showDialog by remember { mutableStateOf(false) }
     var showBukuDialog by remember { mutableStateOf(false) }
 
+    var bukuToDelete by remember { mutableStateOf<Buku?>(null) }
+
     var bitmap: Bitmap? by remember { mutableStateOf(null) }
     val launcher = rememberLauncherForActivityResult(CropImageContract()) {
         bitmap = getCroppedImage(context.contentResolver, it)
@@ -164,6 +167,9 @@ fun MainScreen() {
             onEditClick = { buku ->
                 selectedBuku = buku
                 showEditDialog = true
+            },
+            onDeleteClick = { buku ->
+                bukuToDelete = buku
             }
         )
 
@@ -216,6 +222,23 @@ fun MainScreen() {
             )
         }
 
+        if (bukuToDelete != null) {
+            AlertDialog(
+                onDismissRequest = { bukuToDelete = null },
+                title = { Text("Konfirmasi Hapus") },
+                text = { Text("Yakin ingin menghapus pakaian ini?") },
+                confirmButton = {
+                    Button(onClick = {
+                        viewModel.deleteBuku(bukuToDelete!!.id)
+                        bukuToDelete = null
+                    }) { Text("Hapus") }
+                },
+                dismissButton = {
+                    Button(onClick = { bukuToDelete = null }) { Text("Batal") }
+                }
+            )
+        }
+
         if (error != null) {
             Toast.makeText(context, error, Toast.LENGTH_LONG).show()
             viewModel.clearError()
@@ -225,7 +248,7 @@ fun MainScreen() {
 }
 
 @Composable
-fun ScreenContent(user: User, viewModel: MainViewModel, modifier: Modifier = Modifier, onEditClick:(Buku) -> Unit) {
+fun ScreenContent(user: User, viewModel: MainViewModel, modifier: Modifier = Modifier, onEditClick:(Buku) -> Unit, onDeleteClick:(Buku) -> Unit) {
     val data by viewModel.data
     val status by viewModel.status.collectAsState()
 
@@ -246,9 +269,15 @@ fun ScreenContent(user: User, viewModel: MainViewModel, modifier: Modifier = Mod
             ) {
                 items(data) {
                     if (it.owner == user.email) {
-                        ListItem(viewModel, it){
-                            onEditClick(it)
-                        }
+                        ListItem(
+                            it,
+                            {
+                                onEditClick(it)
+                            },
+                            {
+                                onDeleteClick(it)
+                            }
+                        )
                     }
                 }
             }
@@ -282,7 +311,7 @@ fun ScreenContent(user: User, viewModel: MainViewModel, modifier: Modifier = Mod
 }
 
 @Composable
-fun ListItem(viewModel: MainViewModel, buku: Buku, onClick: () -> Unit) {
+fun ListItem(buku: Buku, onClick :() -> Unit,onDelete :() -> Unit) {
     Card(
         modifier = Modifier
             .padding(8.dp)
@@ -327,7 +356,7 @@ fun ListItem(viewModel: MainViewModel, buku: Buku, onClick: () -> Unit) {
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
-                    IconButton(onClick = { viewModel.deleteBuku(buku.id) }) {
+                    IconButton(onClick = { onDelete() }) {
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = "Hapus",

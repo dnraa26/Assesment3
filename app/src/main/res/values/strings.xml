@@ -13,4 +13,7 @@
     <string name="simpan">Simpan</string>
     <string name="edit_buku">Edit buku</string>
     <string name="add_error">Anda harus melakukan login dahulu!</string>
+    <string name="konfirmasi_hapus">Konfirmasi Hapus</string>
+    <string name="pertanyaan_hapus">Yakin ingin menghapus buku ini?</string>
+    <string name="hapus">Hapus</string>
 </resources>
