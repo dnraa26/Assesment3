@@ -5,7 +5,6 @@ import android.util.Log
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.canhub.cropper.CropImage.CancelledResult.bitmap
 import com.danira0037.assesment3.model.Buku
 import com.danira0037.assesment3.network.ApiStatus
 import com.danira0037.assesment3.network.BukuApi

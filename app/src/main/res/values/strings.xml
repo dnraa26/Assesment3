@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Mobpro1</string>
+    <string name="app_name">My Library</string>
     <string name="gambar">Gambar %1$s</string>
     <string name="error">Gagal memuat data.. Koneksi error.</string>
     <string name="try_again">Coba lagi</string>
@@ -17,4 +17,6 @@
     <string name="pertanyaan_hapus">Yakin ingin menghapus buku ini?</string>
     <string name="hapus">Hapus</string>
     <string name="ganti_gambar">Ganti gambar</string>
+    <string name="list_kosong">Data buku Anda belum tersedia.</string>
+    <string name="login_dahulu">Silahkan login dahulu.</string>
 </resources>

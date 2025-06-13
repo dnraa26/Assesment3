@@ -59,7 +59,7 @@ fun EditBukuDialog(
             ) {
                 if(isUploading){
                     CircularProgressIndicator(
-                        modifier = Modifier.size(10.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 } else {
                     Text(stringResource(id = R.string.simpan))

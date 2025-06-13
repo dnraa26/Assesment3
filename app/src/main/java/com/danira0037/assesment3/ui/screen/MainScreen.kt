@@ -315,22 +315,47 @@ fun ScreenContent(user: User, viewModel: MainViewModel, modifier: Modifier = Mod
             }
         }
         ApiStatus.SUCCESS -> {
-            LazyVerticalGrid(
-                modifier = modifier.fillMaxSize().padding(4.dp),
-                columns = GridCells.Fixed(2),
-                contentPadding = PaddingValues(bottom = 80.dp)
-            ) {
-                items(data) {
-                    if (it.owner == user.email) {
-                        ListItem(
-                            it,
-                            {
-                                onEditClick(it)
-                            },
-                            {
-                                onDeleteClick(it)
+
+                val filteredData = data.filter { it.owner == user.email }
+                if(user.email.isEmpty()){
+                        Column (
+                            modifier = Modifier.fillMaxSize().padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ){
+                            Text(text = stringResource(id = R.string.login_dahulu))
+                        }
+                }else {
+                    if (filteredData.isEmpty()) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Text(text = stringResource(id = R.string.list_kosong))
                             }
-                        )
+                    } else {
+                        LazyVerticalGrid(
+                            modifier = modifier.fillMaxSize().padding(4.dp),
+                            columns = GridCells.Fixed(2),
+                            contentPadding = PaddingValues(bottom = 80.dp)
+                        ) {
+                        items(data) {
+                            if (it.owner == user.email) {
+                                ListItem(
+                                    it,
+                                    {
+                                        onEditClick(it)
+                                    },
+                                    {
+                                        onDeleteClick(it)
+                                    }
+                                )
+                            }
+
+                        }
                     }
                 }
             }
@@ -483,7 +508,7 @@ private fun getCroppedImage(
     val uri = result.uriContent ?: return null
 
     return if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
-        MediaStore.Images.Media.getBitmap(resolver, uri)
+        MediaStore.Images.Media. getBitmap(resolver, uri)
     } else {
         val source = ImageDecoder.createSource(resolver, uri)
         ImageDecoder.decodeBitmap(source)
